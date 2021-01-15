@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test-dev-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Testing files
+        run: npm t
+
+      - name: Building project
+        run: npm run build
