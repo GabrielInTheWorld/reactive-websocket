@@ -1,4 +1,4 @@
-import { Container } from "../di/container";
+import { Container } from '../di/container';
 
 export interface Type<T> {
   new (...args: any[]): T;
@@ -13,6 +13,6 @@ export class InjectableClass {
 export function Constructable(key: any): any {
   return (target: Type<any>) => {
     Container.getInstance().register(key, target);
-    return Reflect.defineMetadata("design:paramtypes", key, target);
+    return Reflect.defineMetadata('design:paramtypes', key, target);
   };
 }

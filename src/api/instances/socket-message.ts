@@ -1,9 +1,11 @@
-import { Id } from "./types";
+import { Id } from './types';
 
 export enum MessageType {
-  TO = "to",
-  BROADCAST = "broadcast",
-  SERVER = "server",
+  TO = 'to',
+  BROADCAST = 'broadcast',
+  SERVER = 'server',
+  SUBSCRIBE = 'subscribe',
+  UNSUBSCRIBE = 'unsubscribe'
 }
 
 export interface EventMessage<T = object> {

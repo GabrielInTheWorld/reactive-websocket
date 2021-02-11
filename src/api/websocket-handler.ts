@@ -3,11 +3,11 @@ import { Observable } from 'rxjs';
 import { connection as Connection, request as Request, server as WebsocketServer } from 'websocket';
 
 import { Constructable } from '../core';
+import { AutoupdateHandler } from './instances/autoupdate-handler';
 import { SocketConfiguration, SocketConnection } from './instances/socket-connection';
 import { EventMap } from './instances/event-map';
-import { EventMessage } from './instances/socket-message';
+import { EventMessage, SocketMessage, MessageType } from './instances/socket-message';
 import { SocketDto } from './instances/socket-dto';
-import { MessageType } from './websocket-components';
 import { Random } from '../core/util';
 
 interface SocketAttributes {
@@ -38,32 +38,40 @@ export interface WebsocketConfiguration {
   /**
    * A Hook, every time a client disconnected from websocket.
    */
-  onClientDisconnected?: (socket: SocketConnection) => void;
+  onClientDisconnect?: (socket: SocketConnection) => void;
+  /**
+   * A Hook, every time a client sent a message.
+   */
+  onClientSend?: (message: SocketMessage, socket: SocketConnection) => void;
 }
 
 @Constructable(WebsocketHandler)
 export class WebsocketHandler {
   private websocketServer: WebsocketServer;
   private sockets: Map<string, SocketConnection> = new Map();
+  private autoupdateHandler = new AutoupdateHandler();
 
   private _onWebsocketCreate: (event: Connection) => void;
   private _onWebsocketDestroy: (event: Connection) => void;
   private _onClientConnect: (socket: SocketConnection) => void;
-  private _onClientDisconnected: (socket: SocketConnection) => void;
+  private _onClientDisconnect: (socket: SocketConnection) => void;
+  private _onClientSend: (message: SocketMessage, socket: SocketConnection) => void;
   private _isOriginAllowed: (origin: string) => boolean;
 
   private mapEvents = new EventMap();
 
   public initWebsocket(config: WebsocketConfiguration): void {
     this.websocketServer = new WebsocketServer({
-      httpServer: config.httpServer
+      httpServer: config.httpServer,
+      autoAcceptConnections: false
     });
 
     this._onWebsocketCreate = config.onWebsocketCreate || this.onConnect;
     this._onWebsocketDestroy = config.onWebsocketDestroy || this.onClose;
     this._isOriginAllowed = config.isOriginAllowed || this.isOriginAllowed;
     this._onClientConnect = config.onClientConnect || this.onClientConnect;
-    this._onClientDisconnected = config.onClientDisconnected || this.onClientDisconnected;
+    this._onClientDisconnect = config.onClientDisconnect || this.onClientDisconnect;
+    this._onClientSend = config.onClientSend || this.onClientSend;
 
     this.initWebsocketEvents();
   }
@@ -77,7 +85,8 @@ export class WebsocketHandler {
   private onConnect(_event: Connection): void {}
   private onClose(_event: Connection): void {}
   private onClientConnect(_socket: SocketConnection): void {}
-  private onClientDisconnected(_socket: SocketConnection): void {}
+  private onClientDisconnect(_socket: SocketConnection): void {}
+  private onClientSend(_message: SocketMessage, _socket: SocketConnection): void {}
 
   private onRequest(request: Request): void {
     console.log('received request from origin: ', request.origin);
@@ -105,18 +114,20 @@ export class WebsocketHandler {
       });
       console.log('Message from type: ', parsedMessage.type);
       switch (parsedMessage.type) {
-        case MessageType.BROADCAST:
-          this.broadcastExceptOne(socket.id, parsedMessage.message as EventMessage);
+        case MessageType.SUBSCRIBE:
+          this.autoupdateHandler.subscribe(parsedMessage.message.event, socket);
           break;
-        case MessageType.TO:
-          this.emit(parsedMessage.to as string, parsedMessage.message as EventMessage);
+        case MessageType.UNSUBSCRIBE:
+          this.autoupdateHandler.unsubscribe(parsedMessage.message.event, socket);
           break;
+        default:
+          this._onClientSend(parsedMessage, socket);
       }
     });
 
     socket.onClose((_reason, _description) => {
       this.sockets.delete(socket.id);
-      this._onClientDisconnected(socket);
+      this._onClientDisconnect(socket);
     });
 
     return socket;
@@ -163,10 +174,14 @@ export class WebsocketHandler {
     }));
   }
 
-  public subscribe(): void {}
-  public unsubscribe(): void {}
+  public subscribe(event: string, socket: SocketConnection): void {
+    this.autoupdateHandler.subscribe(event, socket);
+  }
+  public unsubscribe(event: string, socket: SocketConnection): void {
+    this.autoupdateHandler.unsubscribe(event, socket);
+  }
   public publish<T>(event: string, data: T): void {
-    this.mapEvents.pushMessage(event, data);
+    this.autoupdateHandler.publish(event, { event, data });
   }
 
   private sendToSocket<M>(socket: string, message: EventMessage<M>): void {

@@ -1,6 +1,6 @@
-import { connection as Connection, IMessage } from "websocket";
+import { connection as Connection, IMessage } from 'websocket';
 
-import { EventMessage, SocketMessage } from "./socket-message";
+import { EventMessage, SocketMessage } from './socket-message';
 
 export interface SocketConfiguration {
   id: string;
@@ -41,12 +41,12 @@ export class SocketConnection {
   }
 
   private init(): void {
-    this.connection.on("message", (rawMessage) => {
+    this.connection.on('message', rawMessage => {
       if (this.messageHandler) {
         this.messageHandler(this.parseMessage(rawMessage));
       }
     });
-    this.connection.on("close", (reason, description) => {
+    this.connection.on('close', (reason, description) => {
       if (this.closeHandler) {
         this.closeHandler(reason, description);
       }
@@ -54,18 +54,14 @@ export class SocketConnection {
   }
 
   private parseMessage(rawMessage: IMessage): SocketMessage {
-    if (rawMessage.type === "utf8" && rawMessage.utf8Data) {
+    if (rawMessage.type === 'utf8' && rawMessage.utf8Data) {
       try {
         return JSON.parse(rawMessage.utf8Data);
       } catch (e) {
         console.error(e);
       }
     }
-    console.debug(
-      "Message has a binary type: ",
-      rawMessage.type,
-      rawMessage.binaryData
-    );
+    console.debug('Message has a binary type: ', rawMessage.type, rawMessage.binaryData);
     return rawMessage as any;
   }
 }
