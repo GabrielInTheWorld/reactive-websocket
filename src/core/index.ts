@@ -1,7 +1,4 @@
-import "reflect-metadata";
-
-import { WebsocketHandler } from "./api/websocket-handler";
-
+import { Container } from "./di/container";
 import {
   Constructable,
   Inject,
@@ -9,8 +6,7 @@ import {
   Factory,
   ClassDecorator,
   Type,
-  Container,
-} from "./core";
+} from "./decorators";
 
 export {
   Constructable,
@@ -20,5 +16,4 @@ export {
   ClassDecorator,
   Type,
   Container,
-  WebsocketHandler,
 };
