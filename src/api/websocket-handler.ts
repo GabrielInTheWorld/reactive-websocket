@@ -59,7 +59,7 @@ export interface WebsocketConfiguration {
 export class WebsocketHandler {
   private websocketServer: WebsocketServer;
   private sockets: Map<string, SocketConnection> = new Map();
-  private autoupdateHandler = new AutoupdateHandler();
+  private autoupdateHandler: AutoupdateHandler;
 
   private _onWebsocketCreate: (event: Connection) => void;
   private _onWebsocketDestroy: (event: Connection) => void;
@@ -84,6 +84,7 @@ export class WebsocketHandler {
     this._onClientDisconnect = config.onClientDisconnect || this.onClientDisconnect;
     this._onClientSend = config.onClientSend || this.onClientSend;
     this._log = config.logger || console.log;
+    this.autoupdateHandler = new AutoupdateHandler({ logger: this._log });
 
     this.initWebsocketEvents();
   }
