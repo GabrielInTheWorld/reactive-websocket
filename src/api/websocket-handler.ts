@@ -14,6 +14,12 @@ interface SocketAttributes {
   id: string;
 }
 
+/**
+ *Configuration object for an instance of the websocket-handler.
+ *
+ * @export
+ * @interface WebsocketConfiguration
+ */
 export interface WebsocketConfiguration {
   /**
    * The http server
@@ -43,6 +49,10 @@ export interface WebsocketConfiguration {
    * A Hook, every time a client sent a message.
    */
   onClientSend?: (message: SocketMessage, socket: SocketConnection) => void;
+  /**
+   * A logger to customize log information.
+   */
+  logger?: (...message: any[]) => void;
 }
 
 @Constructable(WebsocketHandler)
@@ -57,6 +67,7 @@ export class WebsocketHandler {
   private _onClientDisconnect: (socket: SocketConnection) => void;
   private _onClientSend: (message: SocketMessage, socket: SocketConnection) => void;
   private _isOriginAllowed: (origin: string) => boolean;
+  private _log: (...message: any[]) => void;
 
   private mapEvents = new EventMap();
 
@@ -72,6 +83,7 @@ export class WebsocketHandler {
     this._onClientConnect = config.onClientConnect || this.onClientConnect;
     this._onClientDisconnect = config.onClientDisconnect || this.onClientDisconnect;
     this._onClientSend = config.onClientSend || this.onClientSend;
+    this._log = config.logger || console.log;
 
     this.initWebsocketEvents();
   }
@@ -89,7 +101,7 @@ export class WebsocketHandler {
   private onClientSend(_message: SocketMessage, _socket: SocketConnection): void {}
 
   private onRequest(request: Request): void {
-    console.log('received request from origin: ', request.origin);
+    this._log('received request from origin: ', request.origin);
     if (!this._isOriginAllowed(request.origin)) {
       request.reject();
       return;
@@ -97,7 +109,7 @@ export class WebsocketHandler {
     const connection = request.accept('echo-protocol', request.origin);
     const id = Random.RandomString();
 
-    console.log('client connected', id);
+    this._log('client connected', id);
     const socket = this.createSocket({ id, connection });
     this._onClientConnect(socket);
     this.sockets.set(id, socket);
@@ -107,12 +119,12 @@ export class WebsocketHandler {
     const socket = new SocketConnection(configuration);
 
     socket.onMessage(parsedMessage => {
-      console.log('Parsed message:', parsedMessage);
+      this._log('Parsed message:', parsedMessage);
       this.mapEvents.pushMessage<SocketDto>(parsedMessage.type, {
         data: parsedMessage.message,
         socketId: socket.id
       });
-      console.log('Message from type: ', parsedMessage.type);
+      this._log('Message from type: ', parsedMessage.type);
       switch (parsedMessage.type) {
         case MessageType.SUBSCRIBE:
           this.autoupdateHandler.subscribe(parsedMessage.message.event, socket);
@@ -133,7 +145,7 @@ export class WebsocketHandler {
     return socket;
   }
 
-  public broadcastExceptOne<M, T>(omittedSocket: string, message: EventMessage<M>): Observable<T> {
+  public broadcastExceptOne<T>(omittedSocket: string, message: EventMessage): Observable<T> {
     const observable = this.mapEvents.fromEvent<T>(message.event);
     this.sockets.forEach((_, key) => {
       if (key !== omittedSocket) {
@@ -143,7 +155,7 @@ export class WebsocketHandler {
     return observable;
   }
 
-  public broadcastAll<M, T>(message: EventMessage<M>): Observable<T> {
+  public broadcastAll<T>(message: EventMessage): Observable<T> {
     const observable = this.mapEvents.fromEvent<T>(message.event);
     this.sockets.forEach((_, key) => {
       this.sendToSocket(key, message);
@@ -151,14 +163,14 @@ export class WebsocketHandler {
     return observable;
   }
 
-  public broadcastByFunction(fn: <M>(socketId: string) => EventMessage<M>, omittedSocket: string): void {
+  public broadcastByFunction(fn: (socketId: string) => EventMessage, omittedSocket: string): void {
     const sockets = Array.from(this.sockets.keys()).filter(socket => socket !== omittedSocket);
     for (const socket of sockets) {
       this.sendToSocket(socket, fn(socket));
     }
   }
 
-  public emit<M, T>(socket: string, message: EventMessage<M>): Observable<T> {
+  public emit<T>(socket: string, message: EventMessage): Observable<T> {
     const observable = this.mapEvents.fromEvent<T>(message.event);
     this.sendToSocket(socket, message);
     return observable;
@@ -184,7 +196,7 @@ export class WebsocketHandler {
     this.autoupdateHandler.publish(event, { event, data });
   }
 
-  private sendToSocket<M>(socket: string, message: EventMessage<M>): void {
+  private sendToSocket(socket: string, message: EventMessage): void {
     this.sockets.get(socket)?.send(message);
   }
 

@@ -1,10 +1,5 @@
 import { BehaviorSubject, Observable } from 'rxjs';
 
-export interface Event {
-  event: string;
-  content: any;
-}
-
 export class EventMap {
   private map: Map<string, BehaviorSubject<any>> = new Map();
 
