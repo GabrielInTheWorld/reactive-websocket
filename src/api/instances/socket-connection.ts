@@ -27,7 +27,7 @@ export class SocketConnection {
     this.init();
   }
 
-  public send<T>(message: EventMessage<T>): void {
+  public send(message: EventMessage): void {
     const rawMessage = JSON.stringify(message);
     this.connection.send(rawMessage);
   }

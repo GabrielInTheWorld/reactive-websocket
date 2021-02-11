@@ -19,9 +19,9 @@ export class AutoupdateHandler {
     }
   }
 
-  public publish<T>(event: string, data: EventMessage<T>): void {
+  public publish(event: string, data: EventMessage): void {
     for (const socket of this.socketMap[event]) {
-      socket.send(data);
+      socket.send({ event, data });
     }
   }
 }
